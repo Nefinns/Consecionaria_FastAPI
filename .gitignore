@@ -1,0 +1,84 @@
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# ========================================
+# VARIABLES DE ENTORNO Y CLAVES (CRÍTICO)
+# ========================================
+.env*
+.env
+.env.local
+.env.*.local
+*.env
+*.pem
+
+# ========================================
+# DESPLIEGUE (VERCEL)
+# ========================================
+.vercel
+
+# ========================================
+# PYTHON & FASTAPI (Tus archivos)
+# ========================================
+# Entornos Virtuales
+venv/
+env/
+.venv/
+.env/
+
+# Caché y compilados de Python
+_pycache_/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.pytest_cache/
+
+# ========================================
+# NODE.JS & DEPENDENCIAS (Los archivos de tu amigo)
+# ========================================
+node_modules/
+/.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# ========================================
+# NEXT.JS, TYPESCRIPT & PRISMA
+# ========================================
+# Next.js y Producción
+/.next/
+/out/
+/build
+dist/
+.swc/
+
+# TypeScript
+*.tsbuildinfo
+next-env.d.ts
+
+# Prisma (Archivos autogenerados)
+/src/generated/prisma
+
+# ========================================
+# TESTING & DEBUG LOGS
+# ========================================
+/coverage
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# ========================================
+# SISTEMA OPERATIVO Y EDITORES
+# ========================================
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.suo
+.ntvs
+*.njsproj
+*.sln
+*.sw?
