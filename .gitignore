@@ -81,4 +81,7 @@ Thumbs.db
 .ntvs
 *.njsproj
 *.sln
-*.sw?
+*.sw?# Respaldos locales de PostgreSQL: nunca subir información de clientes
+backend/backups/*.backup
+backend/backups/*.tmp
+**/__pycache__/

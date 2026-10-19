@@ -1,34 +1,17 @@
-
-import re
-
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
+from psycopg2 import sql
 
 from core.connections import obtener_engine, obtener_engine_admin
-from core.dcl_config import (
-    dcl_usuarios,
-    dcl_grant,
-    dcl_revoke,
-    OPERACIONES_PERMITIDAS,
-)
+from core.dcl_config import dcl_usuarios, PERMISOS_OBJETIVO, TABLAS_CONCESIONARIA
 
-from core.dcl_config import (
-    dcl_usuarios,
-    dcl_grant,
-    dcl_revoke,
-    dcl_tablas,
-    OPERACIONES_PERMITIDAS,
-)
-
-router = APIRouter(prefix="/dcl", tags=["DCL - Usuarios y permisos"])
-
-PATRON_ROL = re.compile(r"^[a-z][a-z0-9_]{2,62}$")
+router = APIRouter(prefix='/dcl', tags=['4.5 Administración de usuarios'])
 
 
 class DatosUsuario(BaseModel):
-    usuario: str = Field(min_length=3, max_length=63)
+    usuario: str
     contrasena: str = Field(min_length=12, max_length=128)
 
 
@@ -38,204 +21,106 @@ class DatosPermiso(BaseModel):
     operacion: str
 
 
-def validar_rol(usuario: str) -> str:
-    if usuario not in dcl_usuarios or not PATRON_ROL.fullmatch(usuario):
-        raise HTTPException(
-            status_code=400,
-            detail="El rol no está permitido en la configuración.",
-        )
+def validar_usuario(usuario: str) -> str:
+    if usuario not in dcl_usuarios:
+        raise HTTPException(422, 'El usuario no está entre los 15 roles de la actividad.')
     return usuario
 
 
-def validar_permiso(datos: DatosPermiso) -> tuple[str, str, str]:
-    usuario = validar_rol(datos.usuario)
-    tabla = datos.tabla.lower()
-    operacion = datos.operacion.upper()
-
-    if not PATRON_ROL.fullmatch(tabla):
-        raise HTTPException(status_code=400, detail="Nombre de tabla inválido.")
-
-    if tabla not in dcl_tablas.get(usuario, []):
-        raise HTTPException(
-        status_code=403,
-        detail="El usuario no tiene autorización para operar sobre esta tabla."
-    )
-
-    engine = obtener_engine()
-    with engine.connect() as conexion:
-        existe = conexion.execute(
-            text("""
-                SELECT 1 FROM information_schema.tables
-                WHERE table_schema = 'public' AND table_name = :tabla
-                  AND table_type = 'BASE TABLE'
-            """),
-            {"tabla": tabla},
-        ).scalar_one_or_none()
-    if not existe:
-        raise HTTPException(status_code=404, detail="La tabla no existe en la base seleccionada.")
-
-    if operacion not in OPERACIONES_PERMITIDAS:
-        raise HTTPException(
-            status_code=400,
-            detail="La operación indicada no está permitida.",
-        )
-
+def validar_permiso(datos: DatosPermiso):
+    usuario = validar_usuario(datos.usuario)
+    tabla, operacion = PERMISOS_OBJETIVO[usuario]
+    if (datos.tabla, datos.operacion.upper()) != (tabla, operacion):
+        raise HTTPException(403, f'Permiso de práctica permitido: {operacion} en {tabla}.')
     return usuario, tabla, operacion
 
 
-@router.get("/usuarios")
-def listar_roles():
-    engine = obtener_engine_admin()
-
-    with engine.connect() as conexion:
-        filas = conexion.execute(
-            text(
-                """
-                SELECT rolname, rolsuper, rolcreatedb, rolcreaterole,
-                       rolcanlogin
-                FROM pg_roles
-                WHERE rolname NOT LIKE 'pg_%'
-                ORDER BY rolname
-                """
-            )
-        ).mappings().all()
-
-    return {"usuarios": [dict(fila) for fila in filas]}
+@router.get('/configuracion')
+def configuracion():
+    return {
+        'usuarios': [
+            {'usuario': nombre, 'descripcion': dcl_usuarios[nombre], 'tabla': tabla, 'operacion': accion}
+            for nombre, (tabla, accion) in PERMISOS_OBJETIVO.items()
+        ],
+        'tablas': list(TABLAS_CONCESIONARIA),
+    }
 
 
-@router.post("/crear_usuario")
+@router.get('/usuarios')
+def listar_usuarios():
+    with obtener_engine_admin().connect() as conexion:
+        filas = conexion.execute(text('SELECT rolname, rolcanlogin FROM pg_roles WHERE rolname = ANY(:nombres)'),
+                                 {'nombres': list(dcl_usuarios)}).mappings().all()
+    presentes = {f['rolname']: f['rolcanlogin'] for f in filas}
+    return {'usuarios': [
+        {'usuario': u, 'descripcion': desc, 'existe': u in presentes,
+         'puede_iniciar_sesion': presentes.get(u, False),
+         'tabla': PERMISOS_OBJETIVO[u][0], 'operacion': PERMISOS_OBJETIVO[u][1]}
+        for u, desc in dcl_usuarios.items()
+    ]}
+
+
+@router.post('/crear_usuario')
 def crear_usuario(datos: DatosUsuario):
-    usuario = validar_rol(datos.usuario)
-    engine = obtener_engine_admin()
-
+    usuario = validar_usuario(datos.usuario)
     try:
-        with engine.begin() as conexion:
-            existe = conexion.execute(
-                text(
-                    "SELECT 1 FROM pg_roles WHERE rolname = :usuario"
-                ),
-                {"usuario": usuario},
-            ).scalar_one_or_none()
-
+        # CREATE ROLE requiere permiso CREATEROLE; es una operación del clúster PostgreSQL.
+        with obtener_engine_admin().begin() as conexion:
+            existe = conexion.execute(text('SELECT 1 FROM pg_roles WHERE rolname=:u'), {'u': usuario}).scalar()
             if existe:
-                raise HTTPException(
-                    status_code=409,
-                    detail=f"El rol '{usuario}' ya existe.",
-                )
-
-            from psycopg2 import sql
-            # CREATE ROLE no admite parámetros enlazados como una consulta DML.
+                raise HTTPException(409, f'El usuario {usuario} ya existe.')
             raw = conexion.connection.driver_connection
             with raw.cursor() as cursor:
-                sentencia = sql.SQL("CREATE ROLE {} LOGIN PASSWORD {}").format(
+                cursor.execute(sql.SQL('CREATE ROLE {} LOGIN PASSWORD {}').format(
                     sql.Identifier(usuario), sql.Literal(datos.contrasena)
-                )
-                cursor.execute(sentencia)
-
+                ))
+        # GRANT USAGE es por base de datos, no por clúster.
+        with obtener_engine().begin() as conexion:
+            conexion.exec_driver_sql(f'GRANT USAGE ON SCHEMA public TO "{usuario}"')
+        return {'mensaje': f'Usuario {usuario} creado y con USAGE en public.'}
     except HTTPException:
         raise
-    except SQLAlchemyError as error:
-        raise HTTPException(
-            status_code=500,
-            detail=f"No se pudo crear el rol: {error}",
-        )
-
-    return {"mensaje": f"Rol '{usuario}' creado correctamente."}
+    except SQLAlchemyError as e:
+        raise HTTPException(400, f'PostgreSQL rechazó la creación del rol: {type(e.orig).__name__ if getattr(e, "orig", None) else type(e).__name__}. Revisa CREATEROLE/GRANT.') from e
 
 
-@router.post("/grant")
-def conceder_permiso(datos: DatosPermiso):
+@router.post('/grant')
+def grant(datos: DatosPermiso):
     usuario, tabla, operacion = validar_permiso(datos)
-
-    if operacion not in dcl_grant.get(usuario, []):
-        raise HTTPException(
-            status_code=403,
-            detail="La operación no está permitida para este rol.",
-        )
-
-    engine = obtener_engine()
-
     try:
-        with engine.begin() as conexion:
-            conexion.exec_driver_sql(
-                f'GRANT {operacion} ON TABLE public."{tabla}" '
-                f'TO "{usuario}"'
-            )
-    except SQLAlchemyError as error:
-        raise HTTPException(
-            status_code=500,
-            detail=f"No se pudo conceder el permiso: {error}",
-        )
-
-    return {
-        "mensaje": "Permiso concedido.",
-        "usuario": usuario,
-        "tabla": tabla,
-        "operacion": operacion,
-    }
+        with obtener_engine().begin() as conexion:
+            if not conexion.execute(text('SELECT 1 FROM pg_roles WHERE rolname=:u'), {'u': usuario}).scalar():
+                raise HTTPException(404, 'Primero crea el usuario.')
+            if not conexion.execute(text('SELECT to_regclass(:t)'), {'t': f'public.{tabla}'}).scalar():
+                raise HTTPException(404, 'Primero crea las tablas de Concesionaria.')
+            conexion.exec_driver_sql(f'GRANT USAGE ON SCHEMA public TO "{usuario}"')
+            conexion.exec_driver_sql(f'GRANT {operacion} ON TABLE public."{tabla}" TO "{usuario}"')
+        return {'mensaje': f'GRANT {operacion} ON {tabla} TO {usuario} ejecutado.'}
+    except HTTPException:
+        raise
+    except SQLAlchemyError as e:
+        raise HTTPException(400, f'No se pudo conceder el permiso ({type(e).__name__}).') from e
 
 
-@router.post("/revoke")
-def revocar_permiso(datos: DatosPermiso):
+@router.post('/revoke')
+def revoke(datos: DatosPermiso):
     usuario, tabla, operacion = validar_permiso(datos)
-
-    if operacion not in dcl_revoke.get(usuario, []):
-        raise HTTPException(
-            status_code=403,
-            detail="La operación no está permitida para este rol.",
-        )
-
-    engine = obtener_engine()
-
     try:
-        with engine.begin() as conexion:
-            conexion.exec_driver_sql(
-                f'REVOKE {operacion} ON TABLE public."{tabla}" '
-                f'FROM "{usuario}"'
-            )
-    except SQLAlchemyError as error:
-        raise HTTPException(
-            status_code=500,
-            detail=f"No se pudo revocar el permiso: {error}",
-        )
-
-    return {
-        "mensaje": "Permiso revocado.",
-        "usuario": usuario,
-        "tabla": tabla,
-        "operacion": operacion,
-    }
+        with obtener_engine().begin() as conexion:
+            conexion.exec_driver_sql(f'REVOKE {operacion} ON TABLE public."{tabla}" FROM "{usuario}"')
+        return {'mensaje': f'REVOKE {operacion} ON {tabla} FROM {usuario} ejecutado.'}
+    except SQLAlchemyError as e:
+        raise HTTPException(400, f'No se pudo revocar el permiso ({type(e).__name__}).') from e
 
 
-@router.get("/permisos/{usuario}")
-def consultar_permisos(usuario: str):
-    usuario = validar_rol(usuario)
-    engine = obtener_engine()
-
-    with engine.connect() as conexion:
-        filas = conexion.execute(
-            text(
-                """
-                SELECT table_name, privilege_type, grantable
-                FROM information_schema.role_table_grants
-                WHERE table_schema = 'public'
-                  AND grantee = :usuario
-                ORDER BY table_name, privilege_type
-                """
-            ),
-            {"usuario": usuario},
-        ).mappings().all()
-
-    return {
-        "usuario": usuario,
-        "permisos": [dict(fila) for fila in filas],
-    }
-
-
-@router.get("/configuracion")
-def consultar_configuracion_dcl():
-    return {
-        "usuarios": dcl_usuarios,
-        "permisos_grant": dcl_grant,
-        "permisos_revoke": dcl_revoke,
-    }
+@router.get('/permisos/{usuario}')
+def permisos(usuario: str):
+    validar_usuario(usuario)
+    with obtener_engine().connect() as conexion:
+        filas = conexion.execute(text('''
+            SELECT table_name, privilege_type, is_grantable
+            FROM information_schema.role_table_grants
+            WHERE table_schema='public' AND grantee=:usuario
+            ORDER BY table_name, privilege_type
+        '''), {'usuario': usuario}).mappings().all()
+    return {'usuario': usuario, 'permisos': [dict(x) for x in filas]}

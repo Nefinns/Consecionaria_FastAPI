@@ -1,4 +1,3 @@
-
 # Esquema de Concesionaria para PostgreSQL
 # Compatible con backend/routers/schema.py
 # El backend ejecuta ddl_create y ddl_indices dentro de engine.begin().
@@ -139,6 +138,7 @@ ddl_create = {
          CONSTRAINT chk_detalle_un_tipo CHECK ((codigo_servicio IS NOT NULL AND codigo_refaccion IS NULL) OR (codigo_servicio IS NULL AND codigo_refaccion IS NOT NULL))
         )
     """,
+
 }
 
 ddl_indices = {
@@ -173,6 +173,7 @@ ddl_indices = {
     "idx_detalle_codigo_orden": """
         CREATE INDEX idx_detalle_codigo_orden ON detalle_orden_servicio(codigo_orden)
     """,
+
 }
 
 # Orden inverso para respetar relaciones entre tablas.
@@ -209,6 +210,7 @@ ddl_drop = {
     "cliente": """
         DROP TABLE cliente
     """,
+
 }
 
 # Datos de prueba originales: no se insertan automáticamente.
@@ -288,4 +290,56 @@ datos_prueba = {
         (4,NULL,4,1,420),
         (5,2,NULL,1,320)
     """,
+
+}
+
+# Consultas originales para las evidencias. No se ejecutan automáticamente.
+consultas_evidencia = {
+    "consulta_1": """
+        SELECT table_name AS tabla FROM information_schema.tables
+        WHERE table_schema='public' AND table_type='BASE TABLE' ORDER BY table_name
+    """,
+
+    "consulta_2": """
+        SELECT table_name AS tabla, column_name AS columna, data_type AS tipo_dato,
+               is_nullable AS permite_null, column_default AS valor_default
+        FROM information_schema.columns WHERE table_schema='public'
+        ORDER BY table_name, ordinal_position
+    """,
+
+    "consulta_3": """
+        SELECT table_name AS tabla, constraint_name AS restriccion, constraint_type AS tipo
+        FROM information_schema.table_constraints WHERE constraint_schema='public'
+        ORDER BY table_name, constraint_type, constraint_name
+    """,
+
+    "consulta_4": """
+        SELECT tablename AS tabla, indexname AS indice, indexdef AS definicion
+        FROM pg_indexes WHERE schemaname='public' ORDER BY tablename,indexname
+    """,
+
+    "consulta_5": """
+        SELECT 'cliente' AS tabla, COUNT(*) AS registros FROM cliente
+        UNION ALL SELECT 'coche',COUNT(*) FROM coche
+        UNION ALL SELECT 'revision',COUNT(*) FROM revision
+        UNION ALL SELECT 'proveedor',COUNT(*) FROM proveedor
+        UNION ALL SELECT 'servicio',COUNT(*) FROM servicio
+        UNION ALL SELECT 'refaccion',COUNT(*) FROM refaccion
+        UNION ALL SELECT 'orden_servicio',COUNT(*) FROM orden_servicio
+        UNION ALL SELECT 'detalle_orden_servicio',COUNT(*) FROM detalle_orden_servicio
+        ORDER BY tabla
+    """,
+
+    "consulta_6": """
+        SELECT c.matricula,c.marca,c.modelo,cl.nombre_cliente
+        FROM coche c LEFT JOIN cliente cl ON cl.codigo_cliente=c.codigo_cliente
+        ORDER BY c.matricula
+    """,
+
+    "consulta_7": """
+        SELECT o.codigo_orden,o.fecha_orden,o.estado,cl.nombre_cliente,c.matricula,c.marca,c.modelo
+        FROM orden_servicio o JOIN cliente cl ON cl.codigo_cliente=o.codigo_cliente
+        JOIN coche c ON c.matricula=o.matricula ORDER BY o.codigo_orden
+    """,
+
 }

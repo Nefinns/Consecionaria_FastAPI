@@ -1,96 +1,37 @@
-
-# Configuración DCL de Concesionaria
-# Actividad 4.5: Administración de usuarios y permisos
-# Base de datos PostgreSQL
-
-# Usuarios autorizados para las operaciones DCL
-
+# Configuración exacta de los 15 GRANT del ejercicio 4.5.
 dcl_usuarios = {
-    "gerente": "Gerente de la concesionaria",
-    "vendedor": "Vendedor de vehículos",
-    "vendedor_02": "Segundo vendedor",
-    "recepcion": "Personal de recepción",
-    "mecanico": "Mecánico de taller",
-    "mecanico_02": "Segundo mecánico",
-    "asesor_servicio": "Asesor de servicio",
-    "almacen": "Encargado de almacén",
-    "contador": "Personal de contabilidad",
-    "compras": "Encargado de compras",
-    "administrador": "Administrador de la concesionaria",
-    "supervisor": "Supervisor de operaciones",
-    "proveedores": "Gestión de proveedores",
-    "inventario": "Control de inventario",
-    "auditor": "Auditor de registros",
+    'gerente': 'Gerencia', 'vendedor': 'Ventas', 'vendedor_02': 'Ventas 02',
+    'recepcion': 'Recepción', 'mecanico': 'Mecánica', 'mecanico_02': 'Mecánica 02',
+    'asesor_servicio': 'Asesoría de servicio', 'almacen': 'Almacén',
+    'contador': 'Contabilidad', 'compras': 'Compras',
+    'administrador': 'Administración', 'supervisor': 'Supervisión',
+    'proveedores': 'Proveedores', 'inventario': 'Inventario',
+    'auditor': 'Auditoría',
 }
 
-# Operaciones SQL permitidas para cada usuario
-# Se conservan los permisos definidos en el script original
-
-dcl_grant = {
-    "gerente": ["SELECT"],
-    "vendedor": ["SELECT"],
-    "vendedor_02": ["INSERT"],
-    "recepcion": ["SELECT"],
-    "mecanico": ["UPDATE"],
-    "mecanico_02": ["SELECT"],
-    "asesor_servicio": ["INSERT"],
-    "almacen": ["SELECT"],
-    "contador": ["SELECT"],
-    "compras": ["INSERT"],
-    "administrador": ["UPDATE"],
-    "supervisor": ["UPDATE"],
-    "proveedores": ["UPDATE"],
-    "inventario": ["DELETE"],
-    "auditor": ["SELECT"],
+PERMISOS_OBJETIVO = {
+    'gerente': ('cliente', 'SELECT'),
+    'vendedor': ('coche', 'SELECT'),
+    'vendedor_02': ('cliente', 'INSERT'),
+    'recepcion': ('revision', 'SELECT'),
+    'mecanico': ('revision', 'UPDATE'),
+    'mecanico_02': ('servicio', 'SELECT'),
+    'asesor_servicio': ('servicio', 'INSERT'),
+    'almacen': ('proveedor', 'SELECT'),
+    'contador': ('cliente', 'SELECT'),
+    'compras': ('proveedor', 'INSERT'),
+    'administrador': ('cliente', 'UPDATE'),
+    'supervisor': ('coche', 'UPDATE'),
+    'proveedores': ('proveedor', 'UPDATE'),
+    'inventario': ('servicio', 'DELETE'),
+    'auditor': ('revision', 'SELECT'),
 }
 
-# Tablas autorizadas por usuario
-# Relación basada en los GRANT del archivo SQL original
-
-dcl_tablas = {
-    "gerente": ["cliente"],
-    "vendedor": ["coche"],
-    "vendedor_02": ["cliente"],
-    "recepcion": ["revision"],
-    "mecanico": ["revision"],
-    "mecanico_02": ["servicio"],
-    "asesor_servicio": ["servicio"],
-    "almacen": ["proveedor"],
-    "contador": ["cliente"],
-    "compras": ["proveedor"],
-    "administrador": ["cliente"],
-    "supervisor": ["coche"],
-    "proveedores": ["proveedor"],
-    "inventario": ["servicio"],
-    "auditor": ["revision"],
-}
-
-# Permisos que se pueden revocar
-# Se permite revocar las mismas operaciones configuradas para GRANT
-
-dcl_revoke = {
-    usuario: permisos.copy()
-    for usuario, permisos in dcl_grant.items()
-}
-
-# Operaciones DCL compatibles
-
-OPERACIONES_PERMITIDAS = {
-    "SELECT",
-    "INSERT",
-    "UPDATE",
-    "DELETE",
-}
-
-# Tablas válidas del esquema de Concesionaria
-
-TABLAS_CONCESIONARIA = {
-    "cliente",
-    "proveedor",
-    "coche",
-    "servicio",
-    "refaccion",
-    "revision",
-    "orden_servicio",
-    "detalle_orden_servicio",
-}
+dcl_grant = {nombre: [operacion] for nombre, (_, operacion) in PERMISOS_OBJETIVO.items()}
+dcl_revoke = {nombre: permisos.copy() for nombre, permisos in dcl_grant.items()}
+dcl_tablas = {nombre: [tabla] for nombre, (tabla, _) in PERMISOS_OBJETIVO.items()}
+OPERACIONES_PERMITIDAS = {'SELECT', 'INSERT', 'UPDATE', 'DELETE'}
+TABLAS_CONCESIONARIA = (
+    'cliente', 'proveedor', 'coche', 'servicio', 'refaccion',
+    'revision', 'orden_servicio', 'detalle_orden_servicio',
+)
