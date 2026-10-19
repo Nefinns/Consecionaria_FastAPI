@@ -81,37 +81,70 @@ def estado_esquema():
 
 
 @router.post("/create-all")
+@router.post("/create-all")
 def crear_esquema_completo():
+    if not ddl_create:
+        raise HTTPException(
+            status_code=409,
+            detail="No hay tablas configuradas para crear."
+        )
+
     engine = obtener_engine()
 
     try:
         with engine.begin() as conexion:
-            for nombre, sentencia in ddl_create.items():
+
+            existentes = set(
+                conexion.execute(
+                    text("""
+                        SELECT table_name
+                        FROM information_schema.tables
+                        WHERE table_schema = 'public'
+                        AND table_type = 'BASE TABLE'
+                    """)
+                ).scalars().all()
+            )
+
+            configuradas = set(ddl_create.keys())
+            duplicadas = sorted(existentes & configuradas)
+
+            if duplicadas:
+                raise HTTPException(
+                    status_code=409,
+                    detail=(
+                        "Ya existen tablas de Concesionaria: "
+                        + ", ".join(duplicadas)
+                    )
+                )
+
+            for sentencia in ddl_create.values():
                 conexion.execute(text(sentencia))
 
-            for nombre, sentencia in ddl_indices.items():
+            for sentencia in ddl_indices.values():
                 conexion.execute(text(sentencia))
+
+    except HTTPException:
+        raise
 
     except SQLAlchemyError as error:
         raise HTTPException(
             status_code=500,
-            detail=(
-                "No se pudo crear el esquema completo. "
-                f"Tipo: {type(error).__name__}. "
-                f"Detalle: {error}"
-            ),
+            detail=f"Error al crear el esquema: {error}"
         )
 
     return {
         "mensaje": "Esquema creado correctamente.",
         "tablas_creadas": len(ddl_create),
         "indices_creados": len(ddl_indices),
-        "base_datos": obtener_base_seleccionada(),
     }
-
 
 @router.post("/drop-all")
 def eliminar_esquema_completo():
+    if not ddl_drop:
+        raise HTTPException(
+            status_code=409,
+            detail="El DROP está deshabilitado hasta adaptar el esquema de Concesionaria.",
+        )
     engine = obtener_engine()
 
     try:

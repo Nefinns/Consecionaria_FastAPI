@@ -1,92 +1,96 @@
 
-# Roles de PostgreSQL para la actividad 4.5.
-# Cambia los nombres o permisos según los requisitos del profesor.
+# Configuración DCL de Concesionaria
+# Actividad 4.5: Administración de usuarios y permisos
+# Base de datos PostgreSQL
+
+# Usuarios autorizados para las operaciones DCL
 
 dcl_usuarios = {
-    "director": "Dirección general",
-    "ventas_tienda": "Personal de ventas",
-    "recepcion": "Recepción",
-    "control_escolar": "Control escolar",
-    "consulta_catalogo": "Consulta del catálogo",
-    "captura_catalogo": "Captura del catálogo",
-    "almacen": "Personal de almacén",
-    "contabilidad": "Contabilidad",
-    "compras": "Compras y abastecimiento",
-    "auditor": "Auditoría de información",
+    "gerente": "Gerente de la concesionaria",
+    "vendedor": "Vendedor de vehículos",
+    "vendedor_02": "Segundo vendedor",
+    "recepcion": "Personal de recepción",
+    "mecanico": "Mecánico de taller",
+    "mecanico_02": "Segundo mecánico",
+    "asesor_servicio": "Asesor de servicio",
+    "almacen": "Encargado de almacén",
+    "contador": "Personal de contabilidad",
+    "compras": "Encargado de compras",
+    "administrador": "Administrador de la concesionaria",
+    "supervisor": "Supervisor de operaciones",
+    "proveedores": "Gestión de proveedores",
+    "inventario": "Control de inventario",
+    "auditor": "Auditor de registros",
 }
 
-# Permisos por rol. Cada entrada es una lista de sentencias permitidas.
-# Los nombres de tabla se limitan a tablas de este esquema.
+# Operaciones SQL permitidas para cada usuario
+# Se conservan los permisos definidos en el script original
 
 dcl_grant = {
-    "director": [
-        "SELECT",
-        "INSERT",
-        "UPDATE",
-        "DELETE",
-    ],
-    "ventas_tienda": [
-        "SELECT",
-        "INSERT",
-    ],
-    "recepcion": [
-        "SELECT",
-    ],
-    "control_escolar": [
-        "SELECT",
-        "INSERT",
-        "UPDATE",
-    ],
-    "consulta_catalogo": [
-        "SELECT",
-    ],
-    "captura_catalogo": [
-        "SELECT",
-        "INSERT",
-        "UPDATE",
-    ],
-    "almacen": [
-        "SELECT",
-        "UPDATE",
-    ],
-    "contabilidad": [
-        "SELECT",
-        "INSERT",
-        "UPDATE",
-    ],
-    "compras": [
-        "SELECT",
-        "INSERT",
-        "UPDATE",
-    ],
-    "auditor": [
-        "SELECT",
-    ],
+    "gerente": ["SELECT"],
+    "vendedor": ["SELECT"],
+    "vendedor_02": ["INSERT"],
+    "recepcion": ["SELECT"],
+    "mecanico": ["UPDATE"],
+    "mecanico_02": ["SELECT"],
+    "asesor_servicio": ["INSERT"],
+    "almacen": ["SELECT"],
+    "contador": ["SELECT"],
+    "compras": ["INSERT"],
+    "administrador": ["UPDATE"],
+    "supervisor": ["UPDATE"],
+    "proveedores": ["UPDATE"],
+    "inventario": ["DELETE"],
+    "auditor": ["SELECT"],
 }
 
-# Lista explícita de operaciones que el backend puede revocar.
+# Tablas autorizadas por usuario
+# Relación basada en los GRANT del archivo SQL original
+
+dcl_tablas = {
+    "gerente": ["cliente"],
+    "vendedor": ["coche"],
+    "vendedor_02": ["cliente"],
+    "recepcion": ["revision"],
+    "mecanico": ["revision"],
+    "mecanico_02": ["servicio"],
+    "asesor_servicio": ["servicio"],
+    "almacen": ["proveedor"],
+    "contador": ["cliente"],
+    "compras": ["proveedor"],
+    "administrador": ["cliente"],
+    "supervisor": ["coche"],
+    "proveedores": ["proveedor"],
+    "inventario": ["servicio"],
+    "auditor": ["revision"],
+}
+
+# Permisos que se pueden revocar
+# Se permite revocar las mismas operaciones configuradas para GRANT
+
 dcl_revoke = {
     usuario: permisos.copy()
     for usuario, permisos in dcl_grant.items()
 }
 
-TABLAS_PERMITIDAS = {
-    "usuario",
-    "cliente",
-    "administrador",
-    "maestro",
-    "periodo_academico",
-    "categoria_instrumento",
-    "instrumento",
-    "clase",
-    "horario_clase",
-    "inscripcion_clase",
-    "pago_clase",
-    "venta",
-    "detalle_venta",
-    "proveedor",
-    "orden_abastecimiento",
-    "detalle_orden",
+# Operaciones DCL compatibles
+
+OPERACIONES_PERMITIDAS = {
+    "SELECT",
+    "INSERT",
+    "UPDATE",
+    "DELETE",
 }
 
-OPERACIONES_PERMITIDAS = {"SELECT", "INSERT", "UPDATE", "DELETE"}
+# Tablas válidas del esquema de Concesionaria
+
+TABLAS_CONCESIONARIA = {
+    "cliente",
+    "proveedor",
+    "coche",
+    "servicio",
+    "refaccion",
+    "revision",
+    "orden_servicio",
+    "detalle_orden_servicio",
+}

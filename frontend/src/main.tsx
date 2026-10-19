@@ -8,8 +8,3 @@ createRoot(document.getElementById('root')!).render(
     <App />
   </StrictMode>,
 )
-
-import { api } from "@/services/api";
-
-const estado = await api("/ddl/estado");
-console.log(estado);

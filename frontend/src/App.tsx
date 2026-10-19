@@ -190,9 +190,9 @@ export default function App() {
 
     const nombre = nombreNueva.trim();
 
-    if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(nombre)) {
+    if (!/^[a-z][a-z0-9_]{2,62}$/.test(nombre)) {
       setError(
-        "Usa un nombre válido: letras, números y guion bajo; no comiences con un número."
+        "Usa de 3 a 63 caracteres: minúsculas, números o guion bajo; comienza con letra."
       );
       return;
     }
@@ -212,21 +212,30 @@ export default function App() {
   };
 
   const crearEsquema = async () => {
-    const confirmado = window.confirm(
-      "¿Crear el esquema completo en la base seleccionada? Revisa que sea la base correcta."
-    );
+  if (!seleccionada) {
+    setError("Primero selecciona una base de datos.");
+    return;
+  }
 
-    if (!confirmado) return;
+  const confirmado = window.confirm(
+    `¿Deseas crear las 8 tablas de Concesionaria en "${seleccionada}"?\n\n` +
+    "Esta operación debe realizarse únicamente en una base de datos vacía."
+  );
 
-    const data = await ejecutar("crear-esquema", () =>
-      api<any>("/ddl/create-all", { method: "POST" })
-    );
+  if (!confirmado) return;
 
-    if (data == null) return;
+  const data = await ejecutar("crear-esquema", () =>
+    api<any>("/ddl/create-all", {
+      method: "POST",
+    })
+  );
 
-    setMensaje("La operación de creación del esquema terminó correctamente.");
-    await cargarEstado(false);
-  };
+  if (data == null) return;
+
+  setMensaje("Esquema de Concesionaria creado correctamente.");
+
+  await cargarEstado(false);
+};
 
   const tablas = getList(estado?.tablas);
   const restricciones = getList(estado?.restricciones);
@@ -263,10 +272,10 @@ export default function App() {
             </div>
             <div>
               <h1 className="text-xl font-bold tracking-tight">
-                DavinciMusic: Panel de administración para bases de datos
+                Concesionaria: Panel de administración de bases de datos
               </h1>
               <p className="text-sm text-slate-500">
-                Actividades 4.1 · 4.2 · 4.3
+                Actividades 4.1 · 4.2 · 4.3 (consulta)
               </p>
             </div>
           </div>
@@ -379,7 +388,7 @@ export default function App() {
           {cargando && (
             <div className="flex items-center gap-2 text-sm text-slate-500">
               <LoaderCircle size={17} className="animate-spin" />
-              Procesando operación...
+              Procesando: {operacion || "operación"}...
             </div>
           )}
 
@@ -525,16 +534,21 @@ export default function App() {
                   </div>
                 </div>
 
-                <button
-                  onClick={() => void crearEsquema()}
-                  disabled={cargando || !seleccionada}
-                  className="mt-5 rounded-xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-50"
-                >
-                  Crear esquema completo
-                </button>
-                <p className="mt-2 text-xs text-slate-500">
-                  Ejecuta la operación definida en el backend. Verifica la base seleccionada antes de continuar.
-                </p>
+                <div className="mt-5">
+  <button
+    onClick={() => void crearEsquema()}
+    disabled={cargando || !seleccionada}
+    className="rounded-xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-50"
+  >
+    <Plus size={17} className="mr-2 inline-block" />
+    Crear esquema completo
+  </button>
+
+  <p className="mt-2 text-xs text-slate-500">
+    Crea las ocho tablas de Concesionaria y sus índices
+    en la base de datos seleccionada.
+  </p>
+</div>
               </div>
 
               <div className="rounded-2xl border border-slate-200 bg-white p-5">

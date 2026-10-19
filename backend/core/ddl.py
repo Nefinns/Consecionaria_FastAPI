@@ -1,426 +1,291 @@
 
-ddl_create = {
-    "usuario": """
-        CREATE TABLE usuario (
-            id_usuario SERIAL PRIMARY KEY,
-            nombre_usuario VARCHAR(50) NOT NULL UNIQUE,
-            nombre VARCHAR(100) NOT NULL,
-            apellidos VARCHAR(150) NOT NULL,
-            fecha_nacimiento DATE,
-            curp CHAR(18) NOT NULL UNIQUE,
-            ine VARCHAR(20) UNIQUE,
-            correo VARCHAR(150) NOT NULL UNIQUE,
-            telefono VARCHAR(20),
-            direccion VARCHAR(255),
-            contrasena_hash VARCHAR(255) NOT NULL,
-            activo BOOLEAN NOT NULL DEFAULT TRUE,
-            fecha_registro TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            CONSTRAINT chk_usuario_curp
-                CHECK (LENGTH(TRIM(curp)) = 18),
-            CONSTRAINT chk_usuario_correo
-                CHECK (correo ~* '^[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}$'),
-            CONSTRAINT chk_usuario_nombre_usuario
-                CHECK (LENGTH(TRIM(nombre_usuario)) > 0)
-        );
-    """,
+# Esquema de Concesionaria para PostgreSQL
+# Compatible con backend/routers/schema.py
+# El backend ejecuta ddl_create y ddl_indices dentro de engine.begin().
+# No agregar BEGIN, COMMIT o ROLLBACK en estas cadenas.
 
+ddl_create = {
     "cliente": """
         CREATE TABLE cliente (
-            id_cliente SERIAL PRIMARY KEY,
-            id_usuario INTEGER NOT NULL UNIQUE,
-            fecha_alta DATE NOT NULL DEFAULT CURRENT_DATE,
-            CONSTRAINT fk_cliente_usuario
-                FOREIGN KEY (id_usuario)
-                REFERENCES usuario(id_usuario)
-        );
-    """,
-
-    "administrador": """
-        CREATE TABLE administrador (
-            id_administrador SERIAL PRIMARY KEY,
-            id_usuario INTEGER NOT NULL UNIQUE,
-            fecha_contratacion DATE,
-            CONSTRAINT fk_administrador_usuario
-                FOREIGN KEY (id_usuario)
-                REFERENCES usuario(id_usuario)
-        );
-    """,
-
-    "maestro": """
-        CREATE TABLE maestro (
-            id_maestro SERIAL PRIMARY KEY,
-            id_usuario INTEGER NOT NULL UNIQUE,
-            especialidad VARCHAR(100) NOT NULL,
-            fecha_contratacion DATE,
-            activo BOOLEAN NOT NULL DEFAULT TRUE,
-            CONSTRAINT fk_maestro_usuario
-                FOREIGN KEY (id_usuario)
-                REFERENCES usuario(id_usuario),
-            CONSTRAINT chk_maestro_especialidad
-                CHECK (LENGTH(TRIM(especialidad)) > 0)
-        );
-    """,
-
-    "periodo_academico": """
-        CREATE TABLE periodo_academico (
-            id_periodo SERIAL PRIMARY KEY,
-            nombre VARCHAR(100) NOT NULL UNIQUE,
-            fecha_inicio DATE NOT NULL,
-            fecha_fin DATE NOT NULL,
-            estado VARCHAR(20) NOT NULL DEFAULT 'Planificado',
-            CONSTRAINT chk_periodo_fechas
-                CHECK (fecha_fin >= fecha_inicio),
-            CONSTRAINT chk_periodo_estado
-                CHECK (estado IN (
-                    'Planificado', 'En curso',
-                    'Finalizado', 'Cancelado'
-                ))
-        );
-    """,
-
-    "categoria_instrumento": """
-        CREATE TABLE categoria_instrumento (
-            id_categoria SERIAL PRIMARY KEY,
-            nombre VARCHAR(100) NOT NULL UNIQUE,
-            descripcion TEXT,
-            CONSTRAINT chk_categoria_nombre
-                CHECK (LENGTH(TRIM(nombre)) > 0)
-        );
-    """,
-
-    "instrumento": """
-        CREATE TABLE instrumento (
-            id_instrumento SERIAL PRIMARY KEY,
-            id_categoria INTEGER NOT NULL,
-            nombre_instrumento VARCHAR(150) NOT NULL,
-            marca VARCHAR(100),
-            modelo VARCHAR(100),
-            tamano VARCHAR(50),
-            color VARCHAR(50),
-            precio NUMERIC(10, 2) NOT NULL,
-            stock INTEGER NOT NULL DEFAULT 0,
-            activo BOOLEAN NOT NULL DEFAULT TRUE,
-            CONSTRAINT fk_instrumento_categoria
-                FOREIGN KEY (id_categoria)
-                REFERENCES categoria_instrumento(id_categoria),
-            CONSTRAINT chk_instrumento_precio
-                CHECK (precio > 0),
-            CONSTRAINT chk_instrumento_stock
-                CHECK (stock >= 0),
-            CONSTRAINT chk_instrumento_nombre
-                CHECK (LENGTH(TRIM(nombre_instrumento)) > 0)
-        );
-    """,
-
-    "clase": """
-        CREATE TABLE clase (
-            id_clase SERIAL PRIMARY KEY,
-            id_maestro INTEGER NOT NULL,
-            id_instrumento INTEGER NOT NULL,
-            id_periodo INTEGER NOT NULL,
-            nombre VARCHAR(150) NOT NULL,
-            nivel VARCHAR(20) NOT NULL,
-            costo NUMERIC(10, 2) NOT NULL DEFAULT 0,
-            cupo INTEGER NOT NULL,
-            activa BOOLEAN NOT NULL DEFAULT TRUE,
-            CONSTRAINT fk_clase_maestro
-                FOREIGN KEY (id_maestro)
-                REFERENCES maestro(id_maestro),
-            CONSTRAINT fk_clase_instrumento
-                FOREIGN KEY (id_instrumento)
-                REFERENCES instrumento(id_instrumento),
-            CONSTRAINT fk_clase_periodo
-                FOREIGN KEY (id_periodo)
-                REFERENCES periodo_academico(id_periodo),
-            CONSTRAINT chk_clase_costo
-                CHECK (costo >= 0),
-            CONSTRAINT chk_clase_cupo
-                CHECK (cupo > 0),
-            CONSTRAINT chk_clase_nivel
-                CHECK (nivel IN (
-                    'Inicial', 'Intermedio', 'Avanzado'
-                ))
-        );
-    """,
-
-    "horario_clase": """
-        CREATE TABLE horario_clase (
-            id_horario SERIAL PRIMARY KEY,
-            id_clase INTEGER NOT NULL,
-            dia VARCHAR(15) NOT NULL,
-            hora_inicio TIME NOT NULL,
-            hora_fin TIME NOT NULL,
-            salon VARCHAR(50),
-            CONSTRAINT fk_horario_clase
-                FOREIGN KEY (id_clase)
-                REFERENCES clase(id_clase),
-            CONSTRAINT chk_horario_dia
-                CHECK (dia IN (
-                    'Lunes', 'Martes', 'Miércoles',
-                    'Jueves', 'Viernes', 'Sábado', 'Domingo'
-                )),
-            CONSTRAINT chk_horario_horas
-                CHECK (hora_fin > hora_inicio)
-        );
-    """,
-
-    "inscripcion_clase": """
-        CREATE TABLE inscripcion_clase (
-            id_inscripcion SERIAL PRIMARY KEY,
-            id_cliente INTEGER NOT NULL,
-            id_clase INTEGER NOT NULL,
-            fecha_inscripcion DATE NOT NULL DEFAULT CURRENT_DATE,
-            costo_mensual_acordado NUMERIC(10, 2) NOT NULL,
-            estado VARCHAR(20) NOT NULL DEFAULT 'Activa',
-            CONSTRAINT fk_inscripcion_cliente
-                FOREIGN KEY (id_cliente)
-                REFERENCES cliente(id_cliente),
-            CONSTRAINT fk_inscripcion_clase
-                FOREIGN KEY (id_clase)
-                REFERENCES clase(id_clase),
-            CONSTRAINT chk_inscripcion_costo
-                CHECK (costo_mensual_acordado >= 0),
-            CONSTRAINT chk_inscripcion_estado
-                CHECK (estado IN (
-                    'Activa', 'Cancelada', 'Finalizada'
-                ))
-        );
-    """,
-
-    "pago_clase": """
-        CREATE TABLE pago_clase (
-            id_pago SERIAL PRIMARY KEY,
-            id_inscripcion INTEGER NOT NULL,
-            periodo_pagado DATE NOT NULL,
-            importe NUMERIC(10, 2) NOT NULL,
-            fecha_vencimiento DATE NOT NULL,
-            fecha_pago DATE,
-            metodo_pago VARCHAR(30),
-            estado VARCHAR(20) NOT NULL DEFAULT 'Pendiente',
-            CONSTRAINT fk_pago_inscripcion
-                FOREIGN KEY (id_inscripcion)
-                REFERENCES inscripcion_clase(id_inscripcion),
-            CONSTRAINT chk_pago_importe
-                CHECK (importe >= 0),
-            CONSTRAINT chk_pago_estado
-                CHECK (estado IN (
-                    'Pendiente', 'Pagado', 'Vencido', 'Cancelado'
-                )),
-            CONSTRAINT chk_pago_fechas
-                CHECK (fecha_vencimiento >= periodo_pagado)
-        );
-    """,
-
-    "venta": """
-        CREATE TABLE venta (
-            id_venta SERIAL PRIMARY KEY,
-            id_cliente INTEGER NOT NULL,
-            id_administrador INTEGER NOT NULL,
-            fecha_venta TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            metodo_pago VARCHAR(30) NOT NULL,
-            estado VARCHAR(20) NOT NULL DEFAULT 'Completada',
-            CONSTRAINT fk_venta_cliente
-                FOREIGN KEY (id_cliente)
-                REFERENCES cliente(id_cliente),
-            CONSTRAINT fk_venta_administrador
-                FOREIGN KEY (id_administrador)
-                REFERENCES administrador(id_administrador),
-            CONSTRAINT chk_venta_metodo_pago
-                CHECK (metodo_pago IN (
-                    'Efectivo', 'Tarjeta', 'Transferencia'
-                )),
-            CONSTRAINT chk_venta_estado
-                CHECK (estado IN (
-                    'Completada', 'Pendiente', 'Cancelada'
-                ))
-        );
-    """,
-
-    "detalle_venta": """
-        CREATE TABLE detalle_venta (
-            id_venta INTEGER NOT NULL,
-            id_instrumento INTEGER NOT NULL,
-            cantidad INTEGER NOT NULL,
-            precio_unitario NUMERIC(10, 2) NOT NULL,
-            PRIMARY KEY (id_venta, id_instrumento),
-            CONSTRAINT fk_detalle_venta_venta
-                FOREIGN KEY (id_venta)
-                REFERENCES venta(id_venta),
-            CONSTRAINT fk_detalle_venta_instrumento
-                FOREIGN KEY (id_instrumento)
-                REFERENCES instrumento(id_instrumento),
-            CONSTRAINT chk_detalle_venta_cantidad
-                CHECK (cantidad > 0),
-            CONSTRAINT chk_detalle_venta_precio
-                CHECK (precio_unitario >= 0)
-        );
+         codigo_cliente INTEGER GENERATED ALWAYS AS IDENTITY,
+         nif CHAR(9) NOT NULL,
+         nombre_cliente VARCHAR(80) NOT NULL,
+         direccion VARCHAR(100) NOT NULL,
+         ciudad VARCHAR(40) NOT NULL DEFAULT 'Guadalajara',
+         telefono CHAR(10) NOT NULL,
+         correo VARCHAR(100) NOT NULL,
+         fecha_registro TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+         activo BOOLEAN NOT NULL DEFAULT TRUE,
+         CONSTRAINT pk_cliente PRIMARY KEY (codigo_cliente),
+         CONSTRAINT uq_cliente_nif UNIQUE (nif),
+         CONSTRAINT uq_cliente_correo UNIQUE (correo),
+         CONSTRAINT chk_cliente_nif CHECK (nif ~ '^[A-Z0-9]{9}$')
+        )
     """,
 
     "proveedor": """
         CREATE TABLE proveedor (
-            id_proveedor SERIAL PRIMARY KEY,
-            nombre VARCHAR(150) NOT NULL,
-            rfc VARCHAR(13) NOT NULL UNIQUE,
-            correo VARCHAR(150),
-            direccion VARCHAR(255),
-            telefono VARCHAR(20),
-            activo BOOLEAN NOT NULL DEFAULT TRUE,
-            CONSTRAINT chk_proveedor_rfc
-                CHECK (LENGTH(TRIM(rfc)) IN (12, 13)),
-            CONSTRAINT chk_proveedor_nombre
-                CHECK (LENGTH(TRIM(nombre)) > 0)
-        );
+         codigo_proveedor INTEGER GENERATED ALWAYS AS IDENTITY,
+         nombre_proveedor VARCHAR(80) NOT NULL,
+         direccion VARCHAR(100) NOT NULL,
+         ciudad VARCHAR(40) NOT NULL DEFAULT 'Guadalajara',
+         telefono CHAR(10) NOT NULL,
+         correo VARCHAR(100) NOT NULL,
+         activo BOOLEAN NOT NULL DEFAULT TRUE,
+         CONSTRAINT pk_proveedor PRIMARY KEY (codigo_proveedor),
+         CONSTRAINT uq_proveedor_correo UNIQUE (correo),
+         CONSTRAINT chk_proveedor_correo CHECK (POSITION('@' IN correo) > 1)
+        )
     """,
 
-    "orden_abastecimiento": """
-        CREATE TABLE orden_abastecimiento (
-            id_orden SERIAL PRIMARY KEY,
-            id_proveedor INTEGER NOT NULL,
-            id_administrador INTEGER NOT NULL,
-            fecha_orden TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            estado VARCHAR(20) NOT NULL DEFAULT 'Pendiente',
-            CONSTRAINT fk_orden_proveedor
-                FOREIGN KEY (id_proveedor)
-                REFERENCES proveedor(id_proveedor),
-            CONSTRAINT fk_orden_administrador
-                FOREIGN KEY (id_administrador)
-                REFERENCES administrador(id_administrador),
-            CONSTRAINT chk_orden_estado
-                CHECK (estado IN (
-                    'Pendiente', 'Enviada',
-                    'Recibida', 'Cancelada'
-                ))
-        );
+    "coche": """
+        CREATE TABLE coche (
+         matricula CHAR(7) NOT NULL,
+         marca VARCHAR(30) NOT NULL,
+         modelo VARCHAR(30) NOT NULL,
+         color VARCHAR(20) NOT NULL DEFAULT 'Blanco',
+         anio SMALLINT NOT NULL,
+         precio_venta DECIMAL(10,2) NOT NULL,
+         codigo_cliente INTEGER,
+         fecha_alta DATE NOT NULL DEFAULT CURRENT_DATE,
+         disponible BOOLEAN NOT NULL DEFAULT TRUE,
+         CONSTRAINT pk_coche PRIMARY KEY (matricula),
+         CONSTRAINT fk_coche_cliente FOREIGN KEY (codigo_cliente) REFERENCES cliente(codigo_cliente) ON UPDATE CASCADE ON DELETE SET NULL,
+         CONSTRAINT chk_coche_anio CHECK (anio BETWEEN 1980 AND 2035),
+         CONSTRAINT chk_coche_precio CHECK (precio_venta > 0),
+         CONSTRAINT chk_coche_matricula CHECK (matricula ~ '^[A-Z0-9]{7}$')
+        )
     """,
 
-    "detalle_orden": """
-        CREATE TABLE detalle_orden (
-            id_orden INTEGER NOT NULL,
-            id_instrumento INTEGER NOT NULL,
-            cantidad_solicitada INTEGER NOT NULL,
-            cantidad_recibida INTEGER NOT NULL DEFAULT 0,
-            costo_unitario NUMERIC(10, 2) NOT NULL,
-            PRIMARY KEY (id_orden, id_instrumento),
-            CONSTRAINT fk_detalle_orden_orden
-                FOREIGN KEY (id_orden)
-                REFERENCES orden_abastecimiento(id_orden),
-            CONSTRAINT fk_detalle_orden_instrumento
-                FOREIGN KEY (id_instrumento)
-                REFERENCES instrumento(id_instrumento),
-            CONSTRAINT chk_detalle_orden_solicitada
-                CHECK (cantidad_solicitada > 0),
-            CONSTRAINT chk_detalle_orden_recibida
-                CHECK (
-                    cantidad_recibida >= 0
-                    AND cantidad_recibida <= cantidad_solicitada
-                ),
-            CONSTRAINT chk_detalle_orden_costo
-                CHECK (costo_unitario >= 0)
-        );
-    """
+    "servicio": """
+        CREATE TABLE servicio (
+         codigo_servicio INTEGER GENERATED ALWAYS AS IDENTITY,
+         nombre_servicio VARCHAR(80) NOT NULL,
+         descripcion VARCHAR(200),
+         costo DECIMAL(10,2) NOT NULL DEFAULT 0,
+         duracion_minutos INTEGER NOT NULL DEFAULT 30,
+         activo BOOLEAN NOT NULL DEFAULT TRUE,
+         CONSTRAINT pk_servicio PRIMARY KEY (codigo_servicio),
+         CONSTRAINT uq_servicio_nombre UNIQUE (nombre_servicio),
+         CONSTRAINT ck_servicio_costo CHECK (costo >= 0),
+         CONSTRAINT ck_servicio_duracion CHECK (duracion_minutos > 0)
+        )
+    """,
+
+    "refaccion": """
+        CREATE TABLE refaccion (
+         codigo_refaccion INTEGER GENERATED ALWAYS AS IDENTITY,
+         codigo_proveedor INTEGER NOT NULL,
+         nombre_refaccion VARCHAR(80) NOT NULL,
+         descripcion VARCHAR(200),
+         precio DECIMAL(10,2) NOT NULL,
+         existencia INTEGER NOT NULL DEFAULT 0,
+         CONSTRAINT pk_refaccion PRIMARY KEY (codigo_refaccion),
+         CONSTRAINT fk_refaccion_proveedor FOREIGN KEY (codigo_proveedor) REFERENCES proveedor(codigo_proveedor) ON UPDATE CASCADE ON DELETE RESTRICT,
+         CONSTRAINT uq_refaccion_proveedor_nombre UNIQUE (codigo_proveedor, nombre_refaccion),
+         CONSTRAINT chk_refaccion_precio CHECK (precio >= 0),
+         CONSTRAINT chk_refaccion_existencia CHECK (existencia >= 0)
+        )
+    """,
+
+    "revision": """
+        CREATE TABLE revision (
+         codigo_revision INTEGER GENERATED ALWAYS AS IDENTITY,
+         fecha_revision DATE NOT NULL DEFAULT CURRENT_DATE,
+         cambio_filtro CHAR(1) NOT NULL DEFAULT 'N',
+         cambio_aceite CHAR(1) NOT NULL DEFAULT 'N',
+         cambio_frenos CHAR(1) NOT NULL DEFAULT 'N',
+         otros VARCHAR(120),
+         matricula CHAR(7) NOT NULL,
+         kilometraje INTEGER NOT NULL DEFAULT 0,
+         CONSTRAINT pk_revision PRIMARY KEY (codigo_revision),
+         CONSTRAINT fk_revision_coche FOREIGN KEY (matricula) REFERENCES coche(matricula) ON UPDATE CASCADE ON DELETE RESTRICT,
+         CONSTRAINT chk_cambio_filtro CHECK (cambio_filtro IN ('S','N')),
+         CONSTRAINT chk_cambio_aceite CHECK (cambio_aceite IN ('S','N')),
+         CONSTRAINT chk_cambio_frenos CHECK (cambio_frenos IN ('S','N')),
+         CONSTRAINT chk_revision_kilometraje CHECK (kilometraje >= 0)
+        )
+    """,
+
+    "orden_servicio": """
+        CREATE TABLE orden_servicio (
+         codigo_orden INTEGER GENERATED ALWAYS AS IDENTITY,
+         codigo_cliente INTEGER NOT NULL,
+         matricula CHAR(7) NOT NULL,
+         fecha_orden DATE NOT NULL DEFAULT CURRENT_DATE,
+         estado VARCHAR(20) NOT NULL DEFAULT 'Pendiente',
+         observaciones VARCHAR(250),
+         CONSTRAINT pk_orden_servicio PRIMARY KEY (codigo_orden),
+         CONSTRAINT fk_orden_cliente FOREIGN KEY (codigo_cliente) REFERENCES cliente(codigo_cliente) ON UPDATE CASCADE ON DELETE RESTRICT,
+         CONSTRAINT fk_orden_coche FOREIGN KEY (matricula) REFERENCES coche(matricula) ON UPDATE CASCADE ON DELETE RESTRICT,
+         CONSTRAINT chk_orden_estado CHECK (estado IN ('Pendiente','En proceso','Terminada','Cancelada'))
+        )
+    """,
+
+    "detalle_orden_servicio": """
+        CREATE TABLE detalle_orden_servicio (
+         codigo_detalle INTEGER GENERATED ALWAYS AS IDENTITY,
+         codigo_orden INTEGER NOT NULL,
+         codigo_servicio INTEGER,
+         codigo_refaccion INTEGER,
+         cantidad INTEGER NOT NULL DEFAULT 1,
+         precio_unitario DECIMAL(10,2) NOT NULL,
+         CONSTRAINT pk_detalle_orden PRIMARY KEY (codigo_detalle),
+         CONSTRAINT fk_detalle_orden FOREIGN KEY (codigo_orden) REFERENCES orden_servicio(codigo_orden) ON UPDATE CASCADE ON DELETE CASCADE,
+         CONSTRAINT fk_detalle_servicio FOREIGN KEY (codigo_servicio) REFERENCES servicio(codigo_servicio) ON UPDATE CASCADE ON DELETE RESTRICT,
+         CONSTRAINT fk_detalle_refaccion FOREIGN KEY (codigo_refaccion) REFERENCES refaccion(codigo_refaccion) ON UPDATE CASCADE ON DELETE RESTRICT,
+         CONSTRAINT chk_detalle_cantidad CHECK (cantidad > 0),
+         CONSTRAINT chk_detalle_precio CHECK (precio_unitario >= 0),
+         CONSTRAINT chk_detalle_un_tipo CHECK ((codigo_servicio IS NOT NULL AND codigo_refaccion IS NULL) OR (codigo_servicio IS NULL AND codigo_refaccion IS NOT NULL))
+        )
+    """,
 }
-
 
 ddl_indices = {
-    "idx_instrumento_categoria":
-        "CREATE INDEX idx_instrumento_categoria ON instrumento(id_categoria)",
+    "idx_coche_codigo_cliente": """
+        CREATE INDEX idx_coche_codigo_cliente ON coche(codigo_cliente)
+    """,
 
-    "idx_instrumento_nombre":
-        "CREATE INDEX idx_instrumento_nombre ON instrumento(nombre_instrumento)",
+    "idx_revision_matricula": """
+        CREATE INDEX idx_revision_matricula ON revision(matricula)
+    """,
 
-    "idx_clase_maestro":
-        "CREATE INDEX idx_clase_maestro ON clase(id_maestro)",
+    "idx_revision_fecha": """
+        CREATE INDEX idx_revision_fecha ON revision(fecha_revision)
+    """,
 
-    "idx_clase_instrumento":
-        "CREATE INDEX idx_clase_instrumento ON clase(id_instrumento)",
+    "idx_refaccion_codigo_proveedor": """
+        CREATE INDEX idx_refaccion_codigo_proveedor ON refaccion(codigo_proveedor)
+    """,
 
-    "idx_clase_periodo":
-        "CREATE INDEX idx_clase_periodo ON clase(id_periodo)",
+    "idx_orden_cliente": """
+        CREATE INDEX idx_orden_cliente ON orden_servicio(codigo_cliente)
+    """,
 
-    "idx_horario_clase":
-        "CREATE INDEX idx_horario_clase ON horario_clase(id_clase)",
+    "idx_orden_matricula": """
+        CREATE INDEX idx_orden_matricula ON orden_servicio(matricula)
+    """,
 
-    "idx_inscripcion_cliente":
-        "CREATE INDEX idx_inscripcion_cliente ON inscripcion_clase(id_cliente)",
+    "idx_orden_fecha": """
+        CREATE INDEX idx_orden_fecha ON orden_servicio(fecha_orden)
+    """,
 
-    "idx_inscripcion_clase":
-        "CREATE INDEX idx_inscripcion_clase ON inscripcion_clase(id_clase)",
-
-    "idx_pago_inscripcion":
-        "CREATE INDEX idx_pago_inscripcion ON pago_clase(id_inscripcion)",
-
-    "idx_pago_estado_vencimiento":
-        "CREATE INDEX idx_pago_estado_vencimiento ON pago_clase(estado, fecha_vencimiento)",
-
-    "idx_venta_cliente":
-        "CREATE INDEX idx_venta_cliente ON venta(id_cliente)",
-
-    "idx_venta_administrador":
-        "CREATE INDEX idx_venta_administrador ON venta(id_administrador)",
-
-    "idx_venta_fecha":
-        "CREATE INDEX idx_venta_fecha ON venta(fecha_venta)",
-
-    "idx_detalle_venta_instrumento":
-        "CREATE INDEX idx_detalle_venta_instrumento ON detalle_venta(id_instrumento)",
-
-    "idx_orden_proveedor":
-        "CREATE INDEX idx_orden_proveedor ON orden_abastecimiento(id_proveedor)",
-
-    "idx_orden_administrador":
-        "CREATE INDEX idx_orden_administrador ON orden_abastecimiento(id_administrador)",
-
-    "idx_detalle_orden_instrumento":
-        "CREATE INDEX idx_detalle_orden_instrumento ON detalle_orden(id_instrumento)"
+    "idx_detalle_codigo_orden": """
+        CREATE INDEX idx_detalle_codigo_orden ON detalle_orden_servicio(codigo_orden)
+    """,
 }
 
-
+# Orden inverso para respetar relaciones entre tablas.
+# Cuidado: /ddl/drop-all elimina las ocho tablas y sus datos.
 ddl_drop = {
-    "detalle_orden":
-        "DROP TABLE IF EXISTS detalle_orden",
+    "detalle_orden_servicio": """
+        DROP TABLE detalle_orden_servicio
+    """,
 
-    "orden_abastecimiento":
-        "DROP TABLE IF EXISTS orden_abastecimiento",
+    "orden_servicio": """
+        DROP TABLE orden_servicio
+    """,
 
-    "proveedor":
-        "DROP TABLE IF EXISTS proveedor",
+    "revision": """
+        DROP TABLE revision
+    """,
 
-    "detalle_venta":
-        "DROP TABLE IF EXISTS detalle_venta",
+    "refaccion": """
+        DROP TABLE refaccion
+    """,
 
-    "venta":
-        "DROP TABLE IF EXISTS venta",
+    "servicio": """
+        DROP TABLE servicio
+    """,
 
-    "pago_clase":
-        "DROP TABLE IF EXISTS pago_clase",
+    "coche": """
+        DROP TABLE coche
+    """,
 
-    "inscripcion_clase":
-        "DROP TABLE IF EXISTS inscripcion_clase",
+    "proveedor": """
+        DROP TABLE proveedor
+    """,
 
-    "horario_clase":
-        "DROP TABLE IF EXISTS horario_clase",
+    "cliente": """
+        DROP TABLE cliente
+    """,
+}
 
-    "clase":
-        "DROP TABLE IF EXISTS clase",
+# Datos de prueba originales: no se insertan automáticamente.
+# Para usarlos, ejecutar cada sentencia una sola vez y en este orden.
+datos_prueba = {
+    "cliente": """
+        INSERT INTO cliente (nif,nombre_cliente,direccion,ciudad,telefono,correo) VALUES
+        ('ABC123456','Ana Lopez Ramirez','Av. Vallarta 120','Guadalajara','3312345678','ana.lopez@example.com'),
+        ('DEF234567','Carlos Martinez Ruiz','Calle Morelos 45','Zapopan','3323456789','carlos.martinez@example.com'),
+        ('GHI345678','Sofia Hernandez Cruz','Av. Patria 890','Tlaquepaque','3334567890','sofia.hernandez@example.com'),
+        ('JKL456789','Miguel Torres Diaz','Calle Juarez 16','Guadalajara','3345678901','miguel.torres@example.com'),
+        ('MNO567890','Valeria Garcia Soto','Av. Mexico 300','Zapopan','3356789012','valeria.garcia@example.com')
+    """,
 
-    "instrumento":
-        "DROP TABLE IF EXISTS instrumento",
+    "proveedor": """
+        INSERT INTO proveedor (nombre_proveedor,direccion,ciudad,telefono,correo) VALUES
+        ('Refacciones del Centro','Calz. Independencia 100','Guadalajara','3611111111','ventas@refacentro.example'),
+        ('Autopartes Jalisco','Av. Lopez Mateos 200','Zapopan','3622222222','contacto@autopartesjalisco.example'),
+        ('Suministros Motor','Calle Industria 30','Tlaquepaque','3633333333','pedidos@suministrosmotor.example')
+    """,
 
-    "categoria_instrumento":
-        "DROP TABLE IF EXISTS categoria_instrumento",
+    "coche": """
+        INSERT INTO coche (matricula,marca,modelo,color,anio,precio_venta,codigo_cliente,disponible) VALUES
+        ('JAL1234','Nissan','Versa','Gris',2021,245000,1,FALSE),
+        ('JAL2345','Toyota','Corolla','Blanco',2022,315000,2,FALSE),
+        ('JAL3456','Mazda','Mazda 3','Rojo',2020,289000,3,FALSE),
+        ('JAL4567','Volkswagen','Jetta','Azul',2023,365000,NULL,TRUE),
+        ('JAL5678','Kia','Rio','Negro',2019,198000,4,FALSE),
+        ('JAL6789','Honda','Civic','Plata',2024,410000,NULL,TRUE)
+    """,
 
-    "periodo_academico":
-        "DROP TABLE IF EXISTS periodo_academico",
+    "servicio": """
+        INSERT INTO servicio (nombre_servicio,descripcion,costo,duracion_minutos) VALUES
+        ('Cambio de aceite','Cambio de aceite y revision basica',850,45),
+        ('Cambio de filtro','Sustitucion del filtro de aceite',320,20),
+        ('Revision de frenos','Inspeccion del sistema de frenado',600,40),
+        ('Afinacion general','Servicio preventivo general',1450,90),
+        ('Diagnostico electronico','Escaneo de sistemas electronicos',500,30)
+    """,
 
-    "maestro":
-        "DROP TABLE IF EXISTS maestro",
+    "refaccion": """
+        INSERT INTO refaccion (codigo_proveedor,nombre_refaccion,descripcion,precio,existencia) VALUES
+        (1,'Filtro de aceite universal','Filtro compatible con varios modelos',180,25),
+        (1,'Aceite sintetico 5W-30','Envase de un litro',140,80),
+        (2,'Pastillas de freno delanteras','Juego de pastillas delanteras',950,12),
+        (2,'Bujias de encendido','Juego de cuatro bujias',420,18),
+        (3,'Filtro de aire','Filtro de aire para motor',260,20),
+        (3,'Limpiador de inyectores','Aditivo para sistema de inyeccion',160,30)
+    """,
 
-    "administrador":
-        "DROP TABLE IF EXISTS administrador",
+    "revision": """
+        INSERT INTO revision (fecha_revision,cambio_filtro,cambio_aceite,cambio_frenos,otros,matricula,kilometraje) VALUES
+        ('2026-01-15','S','S','N','Revision preventiva','JAL1234',35000),
+        ('2026-02-10','N','S','S','Inspeccion de frenos','JAL2345',28000),
+        ('2026-03-05','S','S','S','Servicio completo','JAL3456',52000),
+        ('2026-04-20','N','N','N','Revision general sin cambios','JAL5678',61000),
+        ('2026-05-11','S','N','N','Cambio de filtro','JAL1234',39000)
+    """,
 
-    "cliente":
-        "DROP TABLE IF EXISTS cliente",
+    "orden_servicio": """
+        INSERT INTO orden_servicio (codigo_cliente,matricula,fecha_orden,estado,observaciones) VALUES
+        (1,'JAL1234','2026-06-02','Terminada','Servicio preventivo'),
+        (2,'JAL2345','2026-06-10','En proceso','Revisar vibracion al frenar'),
+        (3,'JAL3456','2026-07-01','Pendiente','Solicita afinacion'),
+        (4,'JAL5678','2026-07-15','Terminada','Diagnostico general'),
+        (1,'JAL1234','2026-08-04','Pendiente','Mantenimiento programado')
+    """,
 
-    "usuario":
-        "DROP TABLE IF EXISTS usuario"
+    "detalle_orden_servicio": """
+        INSERT INTO detalle_orden_servicio (codigo_orden,codigo_servicio,codigo_refaccion,cantidad,precio_unitario) VALUES
+        (1,1,NULL,1,850),
+        (1,NULL,2,4,140),
+        (2,3,NULL,1,600),
+        (2,NULL,3,1,950),
+        (3,4,NULL,1,1450),
+        (4,5,NULL,1,500),
+        (4,NULL,4,1,420),
+        (5,2,NULL,1,320)
+    """,
 }

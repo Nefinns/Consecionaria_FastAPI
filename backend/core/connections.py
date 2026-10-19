@@ -10,7 +10,7 @@ from sqlalchemy.engine import Engine, make_url
 
 load_dotenv()
 
-DATABASE_URL = os.getenv("DATABASE_ADMIN_URL") or os.getenv("DATABASE_URL")
+DATABASE_URL = os.getenv("DATABASE_URL") or os.getenv("DATABASE_ADMIN_URL")
 
 if not DATABASE_URL:
     raise RuntimeError(

@@ -11,7 +11,14 @@ from core.dcl_config import (
     dcl_usuarios,
     dcl_grant,
     dcl_revoke,
-    TABLAS_PERMITIDAS,
+    OPERACIONES_PERMITIDAS,
+)
+
+from core.dcl_config import (
+    dcl_usuarios,
+    dcl_grant,
+    dcl_revoke,
+    dcl_tablas,
     OPERACIONES_PERMITIDAS,
 )
 
@@ -45,11 +52,27 @@ def validar_permiso(datos: DatosPermiso) -> tuple[str, str, str]:
     tabla = datos.tabla.lower()
     operacion = datos.operacion.upper()
 
-    if tabla not in TABLAS_PERMITIDAS:
+    if not PATRON_ROL.fullmatch(tabla):
+        raise HTTPException(status_code=400, detail="Nombre de tabla inválido.")
+
+    if tabla not in dcl_tablas.get(usuario, []):
         raise HTTPException(
-            status_code=400,
-            detail="La tabla indicada no está permitida.",
-        )
+        status_code=403,
+        detail="El usuario no tiene autorización para operar sobre esta tabla."
+    )
+
+    engine = obtener_engine()
+    with engine.connect() as conexion:
+        existe = conexion.execute(
+            text("""
+                SELECT 1 FROM information_schema.tables
+                WHERE table_schema = 'public' AND table_name = :tabla
+                  AND table_type = 'BASE TABLE'
+            """),
+            {"tabla": tabla},
+        ).scalar_one_or_none()
+    if not existe:
+        raise HTTPException(status_code=404, detail="La tabla no existe en la base seleccionada.")
 
     if operacion not in OPERACIONES_PERMITIDAS:
         raise HTTPException(
@@ -100,13 +123,14 @@ def crear_usuario(datos: DatosUsuario):
                     detail=f"El rol '{usuario}' ya existe.",
                 )
 
-            conexion.execute(
-                text(
-                    f'CREATE ROLE "{usuario}" '
-                    "LOGIN PASSWORD :contrasena"
-                ),
-                {"contrasena": datos.contrasena},
-            )
+            from psycopg2 import sql
+            # CREATE ROLE no admite parámetros enlazados como una consulta DML.
+            raw = conexion.connection.driver_connection
+            with raw.cursor() as cursor:
+                sentencia = sql.SQL("CREATE ROLE {} LOGIN PASSWORD {}").format(
+                    sql.Identifier(usuario), sql.Literal(datos.contrasena)
+                )
+                cursor.execute(sentencia)
 
     except HTTPException:
         raise
