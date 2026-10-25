@@ -1,0 +1,97 @@
+---
+config:
+  look: classic
+  fontFamily: Arial
+  htmlLabels: false
+  theme: base
+  themeVariables:
+    background: "#ffffff"
+    fontFamily: "Arial"
+    fontSize: "16px"
+    primaryColor: "#ffffff"
+    primaryTextColor: "#000000"
+    primaryBorderColor: "#000000"
+    lineColor: "#000000"
+    tertiaryColor: "#ffffff"
+    edgeLabelBackground: "#ffffff"
+  er:
+    fontSize: 16
+    fill: "#ffffff"
+    stroke: "#000000"
+---
+erDiagram
+    direction LR
+
+    PROVEEDOR ||..o{ COCHE : suministra
+    CLIENTE ||..o{ VENTA : compra
+    COCHE ||..o{ VENTA : tiene_historial
+    USUARIO_INTERNO ||..o{ VENTA : registra
+    USUARIO_INTERNO |o..o{ VENTA : cancela
+    COCHE ||..o{ REVISION : recibe
+    USUARIO_INTERNO ||..o{ REVISION : realiza
+
+    PROVEEDOR {
+        int id_proveedor PK
+        varchar nombre
+        varchar telefono
+        varchar correo "Opcional"
+        varchar direccion "Opcional"
+        varchar ciudad "Opcional"
+        boolean activo
+    }
+
+    CLIENTE {
+        int id_cliente PK
+        varchar nombre
+        varchar telefono
+        varchar correo "Opcional"
+        varchar direccion "Opcional"
+        varchar ciudad "Opcional"
+        boolean activo
+    }
+
+    USUARIO_INTERNO {
+        int id_usuario PK
+        varchar identidad_externa UK
+        varchar nombre
+        varchar rol "administrador, gerente o mecanico"
+        boolean activo
+    }
+
+    COCHE {
+        int id_coche PK
+        int id_proveedor FK
+        varchar numero_serie UK
+        varchar matricula UK "Opcional"
+        varchar marca
+        varchar modelo
+        smallint anio
+        varchar color
+        numeric precio_referencia "Mayor que cero"
+    }
+
+    VENTA {
+        int id_venta PK
+        int id_coche FK
+        int id_cliente FK
+        int registrado_por FK
+        date fecha_venta
+        numeric importe "Mayor que cero"
+        varchar estado "registrada o cancelada"
+        int cancelado_por FK "Opcional"
+        timestamptz fecha_cancelacion "Opcional"
+        varchar motivo_cancelacion "Opcional"
+    }
+
+    REVISION {
+        int id_revision PK
+        int id_coche FK
+        int realizado_por FK
+        date fecha_revision
+        int kilometraje "Mayor o igual a cero"
+        boolean cambio_filtro
+        boolean cambio_aceite
+        boolean cambio_frenos
+        varchar observaciones "Opcional"
+    }
+

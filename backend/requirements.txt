@@ -1,0 +1,19 @@
+# Concesionaria - backend (Python 3.13.17)
+# Solo dependencias directas del miniproyecto.
+# Las dependencias transitivas las resuelve pip automaticamente.
+# Autenticacion: se integrara Clerk posteriormente, sin contrasenas ni JWT propios.
+
+# API REST y servidor de desarrollo
+fastapi==0.141.1
+uvicorn[standard]==0.53.0
+
+# Modelos y acceso a PostgreSQL
+sqlmodel==0.0.42
+SQLAlchemy==2.0.54
+psycopg2-binary==2.9.13
+
+# Variables de entorno (.env)
+python-dotenv==1.2.3
+
+#Dependencia adicional para manejar registro e inicio de sesión
+supertokens-python==0.31.4

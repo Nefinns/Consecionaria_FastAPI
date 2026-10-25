@@ -1,0 +1,68 @@
+---
+config:
+  look: classic
+  fontFamily: Arial
+  htmlLabels: false
+  theme: base
+  themeVariables:
+    background: "#ffffff"
+    fontFamily: "Arial"
+    fontSize: "18px"
+    primaryColor: "#ffffff"
+    primaryTextColor: "#000000"
+    primaryBorderColor: "#000000"
+    lineColor: "#000000"
+    edgeLabelBackground: "#ffffff"
+  flowchart:
+    htmlLabels: false
+    curve: linear
+    nodeSpacing: 45
+    rankSpacing: 70
+---
+flowchart LR
+    P[PROVEEDOR]
+    C[COCHE]
+    CL[CLIENTE]
+    V[VENTA]
+    R[REVISION]
+    U[USUARIO_INTERNO]
+
+    S{SUMINISTRA}
+    COMP{COMPRA}
+    OBJ{CORRESPONDE A}
+    REG{REGISTRA}
+    CAN{CANCELA}
+    REC{RECIBE}
+    REA{REALIZA}
+
+    P ---|"0..N"| S
+    S ---|"1..1"| C
+
+    CL ---|"0..N"| COMP
+    COMP ---|"1..1"| V
+
+    C ---|"0..N historicas"| OBJ
+    OBJ ---|"1..1"| V
+
+    U ---|"0..N"| REG
+    REG ---|"1..1"| V
+
+    U ---|"0..N"| CAN
+    CAN ---|"0..1"| V
+
+    C ---|"0..N"| REC
+    REC ---|"1..1"| R
+
+    U ---|"0..N"| REA
+    REA ---|"1..1"| R
+
+    AP(["id_proveedor"]) --- P
+    AC(["id_coche"]) --- C
+    ACL(["id_cliente"]) --- CL
+    AV(["id_venta"]) --- V
+    AR(["id_revision"]) --- R
+    AU(["id_usuario"]) --- U
+
+    classDef default fill:#ffffff,stroke:#000000,stroke-width:1.5px,color:#000000;
+    linkStyle default stroke:#000000,stroke-width:1.5px;
+

@@ -82,3 +82,6 @@ Thumbs.db
 *.njsproj
 *.sln
 *.sw?
+
+#Documentación privada
+*.pdf
