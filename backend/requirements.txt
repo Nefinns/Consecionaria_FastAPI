@@ -1,0 +1,7 @@
+# Subconjunto de las versiones fijadas por el proyecto AutoGest.
+# La práctica no usa SuperTokens ni SQLModel porque no incluye autenticación ni ORM.
+fastapi==0.141.1
+uvicorn[standard]==0.53.0
+SQLAlchemy==2.0.54
+psycopg2-binary==2.9.13
+python-dotenv==1.2.3

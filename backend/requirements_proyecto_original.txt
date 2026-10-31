@@ -1,0 +1,9 @@
+# Backend del miniproyecto - Python 3.13.17
+# Dependencias directas, versiones compatibles con el entorno suministrado.
+fastapi==0.141.1
+uvicorn[standard]==0.53.0
+sqlmodel==0.0.42
+SQLAlchemy==2.0.54
+psycopg2-binary==2.9.13
+python-dotenv==1.2.3
+supertokens-python==0.31.4

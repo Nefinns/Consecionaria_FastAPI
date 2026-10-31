@@ -1,0 +1,12 @@
+.env
+.env.local
+*.env.example
+*.env.local.example
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+node_modules/
+dist/
+*.tsbuildinfo
+.DS_Store
