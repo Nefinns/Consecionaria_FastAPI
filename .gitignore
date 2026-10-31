@@ -25,12 +25,12 @@ env/
 .env/
 
 # Caché y compilados de Python
-_pycache_/
+__pycache__/
 *.pyc
 *.pyo
 *.pyd
 .Python
-*.pytest_cache/
+.pytest_cache/
 
 # ========================================
 # NODE.JS & DEPENDENCIAS (Los archivos de tu amigo)
@@ -82,6 +82,5 @@ Thumbs.db
 *.njsproj
 *.sln
 *.sw?
-
-#Documentación privada
-*.pdf
+# Ejemplos de variables sin secretos deben versionarse
+!.env.example
